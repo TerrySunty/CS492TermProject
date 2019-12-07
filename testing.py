@@ -25,11 +25,12 @@ def replace_other_data(data):
     find_nan=0
     for i in encoder.classes_:
         if (i=='nan'):
+            housing_cat_encoded=replace_number_data(housing_cat_encoded.reshape(-1,1),find_nan)
             break
         else: find_nan+=1
-    housing_cat_encoded=replace_number_data(housing_cat_encoded.reshape(-1,1),find_nan)
+        
     encoder = OneHotEncoder()
-    housing_cat_1hot = encoder.fit_transform(housing_cat_encoded)#返回的为稀疏矩阵
+    housing_cat_1hot = encoder.fit_transform(housing_cat_encoded.reshape(-1,1))#返回的为稀疏矩阵
     return housing_cat_1hot
 
 def loop_check(nameList):
@@ -37,15 +38,15 @@ def loop_check(nameList):
         encoder = LabelEncoder()
         housing_col = housing["%s"%(i)]
         housing_col_encoded = encoder.fit_transform(housing_col.astype(str))
-        if(len(encoder.classes_)==0):
-            print (encoder.classes_)
+        if('nan'in encoder.classes_):
+            print (i)
 
 ################################################################## function
 housing = load_housing_data() #获得数据
 #print (housing.iloc[0:10,0:1]) #get data in [excel]row and col
 #housing=housing.drop('Id',axis=1) #delete feature
 #housing=housing.drop([1,3]) drop rowfrom 1 to 3
-
+correct_nan=('Alley','BsmtQual', 'BsmtCond', 'BsmtExposure', 'BsmtFinType1', 'BsmtFinType2','FireplaceQu','GarageType', 'GarageFinish', 'GarageQual', 'GarageCond','PoolQC','Fence','MiscFeature')
 
 encoder = LabelEncoder()
 housing_col = housing["FireplaceQu"]
@@ -56,12 +57,18 @@ nameList=housing.iloc[:0,0:]
 
 housing_num=housing.iloc[0:10,0:]
 housing_num["LotFrontage"]=replace_number_data(housing_num[["LotFrontage"]],"NaN")
-print (housing_num["LotFrontage"])
+#print (housing_num["LotFrontage"]) # ? numpy array
 
 
-housing_cat = housing["PoolQC"]
+for col in correct_nan:
+    housing[col] = housing[col].fillna('None')
+
+loop_check(housing)
+    
+housing_cat = housing["Alley"]
+#print (housing_cat)
 housing_cat_1hot=replace_other_data(housing_cat)
-print (housing_cat_1hot.toarray())
+#print (housing_cat_1hot.toarray())
 
 
 #encoder = LabelBinarizer()
