@@ -2,14 +2,13 @@
 """
 Spyder Editor
 
-This is a temporary script file.
 """
 import pandas as pd
 from sklearn.preprocessing import LabelEncoder
 from sklearn.preprocessing import OneHotEncoder
 from sklearn.preprocessing import LabelBinarizer
 from sklearn.preprocessing import Imputer #为了填充
-#import xlrd # excel
+from collections import Counter
 
 ################################################################### import
 def load_housing_data():
@@ -19,7 +18,7 @@ def replace_number_data(data, judgement): #用众数来替换NA位仅对数值 a
     imputer =Imputer(missing_values=judgement, strategy="most_frequent",axis=0 )
     return imputer.fit_transform(data)
 
-def replace_other_data(data):
+def replace_other_data(data):#目前被鸽子掉了
     encoder = LabelEncoder()
     housing_cat_encoded = encoder.fit_transform(data.astype(str))
     find_nan=0
@@ -34,51 +33,41 @@ def replace_other_data(data):
     return housing_cat_1hot
 
 def loop_check(nameList):
+    list=[]
     for i in nameList:
         encoder = LabelEncoder()
         housing_col = housing["%s"%(i)]
         housing_col_encoded = encoder.fit_transform(housing_col.astype(str))
         if('nan'in encoder.classes_):
-            print (i)
+            list.append(i)
+    return list
 
 ################################################################## function
-housing = load_housing_data() #获得数据
-#print (housing.iloc[0:10,0:1]) #get data in [excel]row and col
-#housing=housing.drop('Id',axis=1) #delete feature
-#housing=housing.drop([1,3]) drop rowfrom 1 to 3
-correct_nan=('Alley','BsmtQual', 'BsmtCond', 'BsmtExposure', 'BsmtFinType1', 'BsmtFinType2','FireplaceQu','GarageType', 'GarageFinish', 'GarageQual', 'GarageCond','PoolQC','Fence','MiscFeature')
-
-encoder = LabelEncoder()
-housing_col = housing["FireplaceQu"]
-housing_col_encoded = encoder.fit_transform(housing_col.astype(str))
-encoder.classes_
-nameList=housing.iloc[:0,0:]
-#print (nameList)
-
-housing_num=housing.iloc[0:10,0:]
-housing_num["LotFrontage"]=replace_number_data(housing_num[["LotFrontage"]],"NaN")
-#print (housing_num["LotFrontage"]) # ? numpy array
-
+housing = load_housing_data() #获得训练集数据
+#train_data=housing
+correct_nan=('Alley','BsmtQual', 'BsmtCond', 'BsmtExposure', 'BsmtFinType1', 
+             'BsmtFinType2','FireplaceQu','GarageType', 'GarageFinish', 
+             'GarageQual', 'GarageCond','PoolQC','Fence','MiscFeature')
+#从描述中找出的NA合法项
+check_list=[] #方便查看缺失项目
 
 for col in correct_nan:
     housing[col] = housing[col].fillna('None')
+check_list=loop_check(housing.columns)#check NA data
+#print (check_list)
 
-loop_check(housing)
-    
-housing_cat = housing["Alley"]
-#print (housing_cat)
-housing_cat_1hot=replace_other_data(housing_cat)
-#print (housing_cat_1hot.toarray())
+wrong_number=('LotFrontage', 'MasVnrArea', 'GarageYrBlt')
+wrong_data=('MasVnrType', 'Electrical')
 
+for number in wrong_number:  #对数字数据进行填补
+    housing["%s"%number]=replace_number_data(housing[["%s"%number]],"NaN")
 
-#encoder = LabelBinarizer()
-#housing_cat_1hot=encoder.fit_transform(housing_cat.astype(str))
-#print (housing_cat_1hot)
-#housing_cat_1hot=replace_number_data(housing_cat_1hot)
-#print (housing_cat_1hot.toarray())
+for data in wrong_data:      ##对非数字数据进行填补
+    most_data_list = Counter(housing["%s"%data]).most_common(2)
+    if (most_data_list[0][0]=='nan'):
+        most_data = most_data_list[1][0]
+    else: most_data = most_data_list[0][0]
+    housing[data] = housing[data].fillna(most_data)
 
-
-
-
-
-
+check_list=loop_check(housing.columns)
+#print (check_list)
