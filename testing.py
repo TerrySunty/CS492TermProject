@@ -23,8 +23,8 @@ def replace_number_data(data, judgement): #用众数来替换NA位仅对数值 a
     imputer =Imputer(missing_values=judgement, strategy="most_frequent",axis=0 )
     return imputer.fit_transform(data)
 
-'''
-def replace_other_data(data):#目前被鸽子掉了
+'''#目前被鸽子项目
+def replace_other_data(data):
     encoder = LabelEncoder()
     housing_cat_encoded = encoder.fit_transform(data.astype(str))
     find_nan=0
@@ -44,7 +44,7 @@ def loop_check(title_list, data_ist):
     for i in title_list:
         encoder = LabelEncoder()
         housing_col = data_ist["%s"%(i)]
-        housing_col_encoded = encoder.fit_transform(housing_col.astype(str))
+        encoder.fit_transform(housing_col.astype(str))
         if('nan'in encoder.classes_):
             list.append(i)
     return list
@@ -62,12 +62,13 @@ def check_type(check_list, data_list):
                 break
     return wrong_number, wrong_data
 
-def process_data(label_data, list_data):
-    for col in label_data:
-        encoder = LabelBinarizer()
-        data_Lab_1Hot=encoder.fit_transform(list_data[col])
-        list_data[col]=data_Lab_1Hot
-    return list_data
+def process_data(data_set):
+    train_dummy = pd.get_dummies(data_set)
+    numeric_cols = data_set.columns[data_set.dtypes != 'object'] #find numerical
+    correct_number_means = train_dummy.loc[:, numeric_cols].mean()
+    correct_number_std = train_dummy.loc[:, numeric_cols].std()
+    train_dummy.loc[:, numeric_cols] = (train_dummy.loc[:, numeric_cols] - correct_number_means) / correct_number_std
+    return train_dummy
 
 ################################################################## function
 housing = load_housing_data() #获得训练集数据
@@ -126,14 +127,22 @@ check_list=loop_check(test.columns, test)
 
 ##################################################################  testing
 
+housing['MSSubClass'] =housing['MSSubClass'].astype(str) #?????????????special
+
 train_data = housing.drop('Id',axis=1)
 train_data = train_data.drop('SalePrice',axis=1)       #数据处理d训练整合
 train_result = housing["SalePrice"]
 #train_data = train_data.values      数据类型转化成sklearn可用的numpy array
-correct_number, correct_data = check_type(train_data.columns, train_data)
-#print (correct_number)
-#print (correct_data)
 
+train_data= process_data(train_data)
+
+print(train_data)
+
+
+#train_data = train_data["MasVnrType"].values
+#train_data_dum=pd.get_dummies(train_data)
+
+#print (train_data_dum)
 
 
 
@@ -157,5 +166,3 @@ correct_number, correct_data = check_type(train_data.columns, train_data)
 Submission_File = pd.DataFrame({'Id': test['Id'], 'SalePrice': test_result})
 # you could use any filename. We choose submission here
 Submission_File.to_csv('teamname_submission.csv', index=False)
-
-'''
