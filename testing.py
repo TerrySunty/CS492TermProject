@@ -13,6 +13,13 @@ from sklearn import metrics
 # ensemble model
 from sklearn.ensemble import RandomForestRegressor
 
+
+import matplotlib.pyplot as plt
+import seaborn as sns
+import numpy as np
+
+from sklearn.preprocessing import StandardScaler
+
 ################################################################### import
 def load_housing_data():
     return pd.read_csv('train.csv')
@@ -84,6 +91,45 @@ for col in correct_nan:
 check_list=loop_check(housing.columns, housing)#check NA data
 #print (check_list)
 
+#print (housing.describe())
+
+total = housing.isnull().sum().sort_values(ascending=False)
+#print(total) #显示缺失项
+#print (housing)
+
+#偏移值处理
+#max 755000
+ex_housing = housing.sort_values(by = 'GrLivArea', ascending = False)[:2] ### 沿着轴方向按指定值排序  
+train= housing.drop(housing[housing['Id'] == 1299].index)
+train= train.drop(train[train['Id'] == 524].index)
+var = 'GrLivArea'
+#data = pd.concat([train['SalePrice'], train[var]], axis=1)
+#data.plot.scatter(x=var, y='SalePrice', ylim=(0,800000));
+
+#print (ex_housing)
+
+
+
+
+#计算所有特征值每两个之间的相关系数，并作图表示。
+corrmat = train.corr()#得到相关系数
+#f,ax = plt.subplots(figsize = (12,9))
+#sns.heatmap(corrmat, vmax = .8, square = True)#热点图
+
+#取出相关性最大的前十个，做出热点图表示
+k = 10 #number of variables for heatmap
+cols = corrmat.nlargest(k, 'SalePrice')['SalePrice'].index
+#print (cols)
+cm = np.corrcoef(train[cols].values.T)
+sns.set(font_scale=1.25)
+hm = sns.heatmap(cm, cbar=True, annot=True, square=True, fmt='.2f',     annot_kws={'size': 10}, yticklabels=cols.values,    xticklabels=cols.values)
+#plt.show()
+
+
+
+
+
+
 wrong_number, wrong_data = check_type(check_list, housing)  #讲存在错误项区分类型
 #print (wrong_number)
 #print (wrong_data)
@@ -110,21 +156,31 @@ for col in correct_nan:
 check_list=loop_check(test.columns, test)
 #print (check_list)
 
+
+total = test.isnull().sum().sort_values(ascending=False)
+#print(total)
+
+
+
+
+
+
+
+
 wrong_number, wrong_data = check_type(check_list, test)
 
 for number in wrong_number:  #对数字数据进行填补
     test["%s"%number]=replace_number_data(test[["%s"%number]],"NaN")
 
-for data in wrong_data:      ##对非数字数据进行填补
+for data in wrong_data:      ##对非数字数据进行填补，忘了丫的用本身数据进行填补了
     most_data_list = Counter(test["%s"%data]).most_common(2)
     if (most_data_list[0][0]=='nan'):
         most_data = most_data_list[1][0]
     else: most_data = most_data_list[0][0]
     test[data] = test[data].fillna(most_data)
+    
 check_list=loop_check(test.columns, test)
 #print (check_list)
-
-
 ##################################################################  testing
 
 housing['MSSubClass'] =housing['MSSubClass'].astype(str) #?????????????special
@@ -133,10 +189,25 @@ train_data = housing.drop('Id',axis=1)
 train_data = train_data.drop('SalePrice',axis=1)       #数据处理d训练整合
 train_result = housing["SalePrice"]
 #train_data = train_data.values      数据类型转化成sklearn可用的numpy array
+#print('存在' if any(housing.duplicated()) else '不存在', '重复观测值')
 
-train_data= process_data(train_data)
+#数值数据标准化
 
-print(train_data)
+
+
+
+#train_data= process_data(train_data)   ###使数据处理更平滑
+#print(train_data)
+
+
+
+train_dummy = pd.get_dummies(train_data)
+numeric_cols = train_data.columns[train_data.dtypes != 'object']
+scaler = StandardScaler()
+scaler.fit(train_dummy.loc[:, numeric_cols])                               # 使用transfrom必须要用fit语句
+train_dummy.loc[:, numeric_cols] = scaler.transform(train_dummy.loc[:, numeric_cols])          # transfrom通过找中心和缩放等实现标准化
+train_dummy.loc[:, numeric_cols] = scaler.fit_transform(train_dummy.loc[:, numeric_cols]) 
+print (train_dummy)
 
 
 #train_data = train_data["MasVnrType"].values
@@ -166,3 +237,5 @@ print(train_data)
 Submission_File = pd.DataFrame({'Id': test['Id'], 'SalePrice': test_result})
 # you could use any filename. We choose submission here
 Submission_File.to_csv('teamname_submission.csv', index=False)
+
+'''
