@@ -92,6 +92,11 @@ import matplotlib as mpl
 import matplotlib.pylab as pylab
 import seaborn as sns
 from sklearn.preprocessing import LabelEncoder
+from sklearn.preprocessing import MinMaxScaler
+
+# model
+from sklearn.model_selection import KFold
+
 
 data_train= pd.read_csv("./train.csv")
 data_test= pd.read_csv("./test.csv")
@@ -103,18 +108,77 @@ data_test = data_test.drop(['Id'],axis=1)
 data_clean = [data_train,data_test]
 target = "SalePrice"
 
+#################################################################################
 
+numeric_cols = data_train.columns[data_train.dtypes != 'object']
+numeric_cols = numeric_cols.drop('SalePrice')
+#print(numeric_cols)
+
+data_train = data_train.drop(data_train[(data_train['1stFlrSF']>4000)].index)
+data_train = data_train.drop(data_train[(data_train['BsmtFinSF1']>4000)].index)
+data_train = data_train.drop(data_train[(data_train['EnclosedPorch']>500)].index)
 data_train = data_train.drop(data_train[(data_train['GrLivArea']>4000) & (data_train['SalePrice']<300000)].index)
+data_train = data_train.drop(data_train[(data_train['LotFrontage']>300)].index)
+data_train = data_train.drop(data_train[(data_train['OpenPorchSF']>500) & (data_train['SalePrice']<100000)].index)
+data_train = data_train.drop(data_train[(data_train['TotalBsmtSF']>6000)].index)
+
+
+'''#产出离散图
+numerical='TotalBsmtSF'
+plt.figure(figsize=(8,6), dpi=80)
+plt.scatter(x = data_train['%s' % numerical], y = data_train['SalePrice'])
+plt.ylabel('SalePrice', fontsize=13)
+plt.xlabel('%s' % numerical, fontsize=13)
+plt.show()
+
+for numerical in numeric_cols:
+    plt.figure(figsize=(8,6), dpi=80)
+    plt.scatter(x = data_train['%s' % numerical], y = data_train['SalePrice'])
+    plt.ylabel('SalePrice', fontsize=13)
+    plt.xlabel('%s' % numerical, fontsize=13)
+    plt.title('%s' % numerical)
+    plt.savefig("C:/Users/tsuitka/Desktop/final/after/%s.png"% numerical)
+    plt.show()
+'''
+    
+#################################################################################
 
 
 (mu, sigma) = norm.fit(data_train['SalePrice'])
+# 画出概率分布图
+#sns.distplot(data_train[target] , fit=norm)
+#plt.legend(['Normal dist. ($\mu=$ {:.2f} and $\sigma=$ {:.2f} )'.format(mu, sigma)],loc='best')
+#plt.ylabel('Frequency')
+#plt.title('SalePrice distribution')
+# 画出正态概率图QQ-plot
+#fig = plt.figure()
+#stats.probplot(data_train['SalePrice'], plot=plt)
+#plt.show()
+# skewness & Kurtosis
+#print("Skewness: %f" % data_train[target].skew())
+#print("Kurtosis: %f" % data_train[target].kurt())
+
+# 对数据进行box cox转换，用numpy log1p进行log(1+x)的变换，产生新的column [SalePrice_trans]
+data_train['SalePrice_trans'] = np.log1p(data_train[target])
+target_trans = 'SalePrice_trans'
+# 画图观察
+#sns.distplot(data_train[target_trans])
+#plt.ylabel('Frequency')
+#plt.title('SalePrice distribution')
+# QQ-plot
+#fig = plt.figure()
+#stats.probplot(data_train[target_trans], plot=plt)
+#plt.show()
+# skewness & Kurtosis
+#print("Skewness: %f" % data_train[target_trans].skew())
+#print("Kurtosis: %f" % data_train[target_trans].kurt())
+data_target = data_train['SalePrice_trans']
 
 
+########################################## 缺失值
 
-
-
-meaningful_zero=['PoolQC', 'FireplaceQu','GarageQual','GarageCond','FireplaceQu','GarageFinish','Fence','GarageType', 'GarageCars', 'GarageArea',
-            'BsmtFinType2','BsmtQual','BsmtCond','BsmtFinType1','MasVnrType','MiscFeature','Alley','Fence','BsmtExposure']#合法的NA情况，比如没有车库，没有泳池
+meaningful_zero=['PoolQC', 'FireplaceQu','GarageQual','GarageCond','FireplaceQu','GarageFinish','Fence','GarageType', 
+                 'BsmtFinType2','BsmtQual','BsmtCond','BsmtFinType1','MasVnrType','MiscFeature','Alley','Fence','BsmtExposure']#合法的NA情况，比如没有车库，没有泳池
 
 cont_NA=["LotFrontage ","LotFrontage "]
 discrete_NA=['Electrical','MasVnrType', 'MSZoning','KitchenQual','Exterior1st','Exterior2nd','SaleType','Utilities'] # Utilities用allpub提升精度
@@ -125,8 +189,22 @@ for na in meaningful_zero:
 
 data_train['LotFrontage'] = data_train['LotFrontage'].groupby(by=data_train['Neighborhood']).apply(lambda x: x.fillna(x.mean()))
 data_train['MasVnrArea'] = data_train['MasVnrArea'].fillna(data_train['MasVnrArea'].mean())
+
 data_test['LotFrontage'] = data_test['LotFrontage'].groupby(by=data_test['Neighborhood']).apply(lambda x: x.fillna(x.mean()))
 data_test['MasVnrArea'] = data_test['MasVnrArea'].fillna(data_test['MasVnrArea'].mean())###用众数还是用平均值？
+
+##############################################################################
+
+'''#邻居的相关性
+encoder = LabelEncoder()
+data_train['Neighborhood'] = encoder.fit_transform(data_train['Neighborhood'].astype(str))
+data = pd.concat([data_train['LotFrontage'], data_train['Neighborhood']], axis=1)
+data.plot.scatter(x='Neighborhood', y='LotFrontage');
+plt.savefig("C:/Users/tsuitka/Desktop/final/NL.png")
+plt.show()
+'''
+
+##############################################################################
 
 for na in discrete_NA:
     data_train[na] = data_train[na].fillna(data_train[na].mode()[0])
@@ -143,6 +221,10 @@ for col in ('BsmtFinSF1', 'BsmtFinSF2', 'BsmtUnfSF','TotalBsmtSF', 'BsmtFullBath
 # 缺失GarageYrBlt，是因为不存在车库，这里由于年份是数值型，这里用较老年份1920代替
 data_train['GarageYrBlt'] = data_train['GarageYrBlt'].fillna(1900)
 data_test['GarageYrBlt'] = data_test['GarageYrBlt'].fillna(1900)
+data_train['GarageCars'] = data_train['GarageCars'].fillna(0)
+data_train['GarageArea'] = data_train['GarageArea'].fillna(0)
+data_test['GarageCars'] = data_test['GarageCars'].fillna(0)
+data_test['GarageArea'] = data_test['GarageArea'].fillna(0)
 
 # missing_train_data = pd.DataFrame({'Missing Number': data_train.isnull().sum().sort_values(ascending=False)})
 # missing_train_data = missing_train_data.drop(missing_train_data[missing_train_data['Missing Number']==0].index)
@@ -154,21 +236,27 @@ data_test['GarageYrBlt'] = data_test['GarageYrBlt'].fillna(1900)
 data_train['TotalSF'] = data_train['TotalBsmtSF'] + data_train['1stFlrSF'] + data_train['2ndFlrSF']
 data_test['TotalSF'] = data_test['TotalBsmtSF'] + data_test['1stFlrSF'] + data_test['2ndFlrSF']
 
-for dataset in data_clean:
 #MSSubClass
-    dataset['MSSubClass'] = dataset['MSSubClass'].astype(str)
+data_train['MSSubClass'] = data_train['MSSubClass'].astype(str)
 
 #OverallCond
-    dataset['OverallCond'] = dataset['OverallCond'].astype(str)
-    dataset['OverallQual'] = dataset['OverallQual'].astype(str)
+data_train['OverallCond'] = data_train['OverallCond'].astype(str)
+data_train['OverallQual'] = data_train['OverallQual'].astype(str)
 #Year and month sold
-    dataset['YrSold'] = dataset['YrSold'].astype(str)
-    dataset['MoSold'] = dataset['MoSold'].astype(str)
+data_train['YrSold'] = data_train['YrSold'].astype(str)
+data_train['MoSold'] = data_train['MoSold'].astype(str)
+    
+data_test['MSSubClass'] = data_test['MSSubClass'].astype(str)
+data_test['OverallCond'] = data_test['OverallCond'].astype(str)
+data_test['OverallQual'] = data_test['OverallQual'].astype(str)
+data_test['YrSold'] = data_test['YrSold'].astype(str)
+data_test['MoSold'] = data_test['MoSold'].astype(str)
 
-train_dummy = pd.get_dummies(data_train)
-test_dummy = pd.get_dummies(data_test)
-numeric_train_cols = data_train.columns[data_train.dtypes != 'object']  # find numerical
-numeric_test_cols = data_test.columns[data_test.dtypes != 'object'] #找到纯数值项的集合
+
+#train_dummy = pd.get_dummies(data_train)
+#test_dummy = pd.get_dummies(data_test)
+#numeric_train_cols = data_train.columns[data_train.dtypes != 'object']  # find numerical
+#numeric_test_cols = data_test.columns[data_test.dtypes != 'object'] #找到纯数值项的集合
 
 # cols = ('FireplaceQu', 'BsmtQual', 'BsmtCond', 'GarageQual', 'GarageCond',
 #         'ExterQual', 'ExterCond','HeatingQC', 'PoolQC', 'KitchenQual', 'BsmtFinType1',
@@ -186,7 +274,6 @@ numeric_test_cols = data_test.columns[data_test.dtypes != 'object'] #找到纯�
 feats_numeric = data_train.dtypes[data_train.dtypes != "object"].index
 data_skewness = pd.DataFrame({'Skew' :data_train[feats_numeric].apply(lambda x: skew(x)).sort_values(ascending=False)})
 data_skewness = data_skewness[abs(data_skewness) > 0.75]
-
 from scipy.special import boxcox1p
 feats_skewed = data_skewness.index
 lam = 0.15
@@ -203,4 +290,80 @@ lam = 0.15
 for feat in feats_skewed:
     #all_data[feat] += 1
     data_test[feat] = boxcox1p(data_test[feat], lam)
+
+data_train=data_train.drop(['SalePrice', 'SalePrice_trans'], axis=1)
+
+#标准化
+train_dummy = pd.get_dummies(data_train)
+numeric_cols = data_train.columns[data_train.dtypes != 'object']
+scaler = MinMaxScaler()
+scaler.fit(train_dummy.loc[:, numeric_cols])                                              # 使用transfrom必须要用fit语句
+train_dummy.loc[:, numeric_cols] = scaler.transform(train_dummy.loc[:, numeric_cols])     # transfrom通过找中心和缩放等实现标准化
+train_dummy.loc[:, numeric_cols] = scaler.fit_transform(train_dummy.loc[:, numeric_cols]) 
+#print(len(numeric_cols))
+
+test_dummy = pd.get_dummies(data_test)
+numeric_cols = data_test.columns[data_test.dtypes != 'object']
+scaler = MinMaxScaler()
+scaler.fit(test_dummy.loc[:, numeric_cols])                                        
+test_dummy.loc[:, numeric_cols] = scaler.transform(test_dummy.loc[:, numeric_cols])
+test_dummy.loc[:, numeric_cols] = scaler.fit_transform(test_dummy.loc[:, numeric_cols]) 
+
+#train_dummy.to_csv('C:/Users/tsuitka/Desktop/final/out1.csv')
+#test_dummy.to_csv('C:/Users/tsuitka/Desktop/final/out2.csv')
+
+################################## FUCK!
+Categorial_cols = data_train.columns[data_train.dtypes == 'object']
+fucking_train=[]
+fucking_test=[]
+
+for i in Categorial_cols:
+    encoder1 = LabelEncoder()
+    encoder1.fit_transform(data_train["%s"%(i)].astype(str))
+    encoder2 = LabelEncoder()
+    encoder2.fit_transform(data_test["%s"%(i)].astype(str))
+    for j in range(len(list(encoder1.classes_))):
+        element = list(encoder1.classes_)[j]
+        if((element not in list(encoder2.classes_)) and (list(encoder1.classes_) != list(encoder2.classes_))):
+            fucking_train.append([i,element])
+    for k in range(len(list(encoder2.classes_))):
+        element = list(encoder2.classes_)[k]
+        if((element not in list(encoder1.classes_)) and (list(encoder1.classes_) != list(encoder2.classes_))):
+            fucking_test.append([i,element])
+
+#print(fucking_train)
+#print(fucking_test)
+for i in fucking_train:
+    test_dummy["%s_%s"%(i[0],i[1])]=0
+
+train_dummy['MSSubClass_150']=0
+ ##################################### WOC!
+
+
+
+#train_dummy.to_csv('C:/Users/tsuitka/Desktop/final/out1.csv')
+#test_dummy.to_csv('C:/Users/tsuitka/Desktop/final/out2.csv')
+
+
+
+'''
+###############################取出相关性最大的前十个，做出热点图表示
+corrmat = data_train.corr()#得到相关系数
+k = 10 #number of variables for heatmap
+cols = corrmat.nlargest(k, 'SalePrice')['SalePrice'].index
+cm = np.corrcoef(data_train[cols].values.T)
+sns.set(font_scale=1.25)
+sns.heatmap(cm, cbar=True, annot=True, square=True, fmt='.2f', annot_kws={'size': 10}, yticklabels=cols.values, xticklabels=cols.values)
+plt.title("heatmap")
+plt.savefig("C:/Users/tsuitka/Desktop/final/heatmap.png")
+plt.show()
+'''
+#######################################模型RMSE
+'''
+n_folds = 5
+def RMSE(alg):
+    kf = KFold(n_folds, shuffle=True, random_state=20).get_n_splits(train_dummy)
+    rmse= np.sqrt(-cross_val_score(alg, train_dummy, data_target, scoring="neg_mean_squared_error", cv = kf))
+    return(rmse)
+'''
 
