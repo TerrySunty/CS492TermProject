@@ -313,6 +313,7 @@ test_dummy.loc[:, numeric_cols] = scaler.fit_transform(test_dummy.loc[:, numeric
 #test_dummy.to_csv('C:/Users/tsuitka/Desktop/final/out2.csv')
 
 ################################## FUCK!
+
 Categorial_cols = data_train.columns[data_train.dtypes == 'object']
 fucking_train=[]
 fucking_test=[]
@@ -330,15 +331,18 @@ for i in Categorial_cols:
         element = list(encoder2.classes_)[k]
         if((element not in list(encoder1.classes_)) and (list(encoder1.classes_) != list(encoder2.classes_))):
             fucking_test.append([i,element])
+'''
+print(fucking_train)
+print(fucking_test)
+            
+temporary=train_dummy["SaleCondition_Partial"][3]
 
-#print(fucking_train)
-#print(fucking_test)
 for i in fucking_train:
-    test_dummy["%s_%s"%(i[0],i[1])]=0
+    test_dummy["%s_%s"%(i[0],i[1])]= temporary
 
-train_dummy['MSSubClass_150']=0
+train_dummy["MSSubClass_150"]= temporary
  ##################################### WOC!
-
+'''
 
 
 #train_dummy.to_csv('C:/Users/tsuitka/Desktop/final/out1.csv')
@@ -358,12 +362,53 @@ plt.title("heatmap")
 plt.savefig("C:/Users/tsuitka/Desktop/final/heatmap.png")
 plt.show()
 '''
-#######################################模型RMSE
-'''
+#######################################评估RMSE 越小越好
+
 n_folds = 5
 def RMSE(alg):
     kf = KFold(n_folds, shuffle=True, random_state=20).get_n_splits(train_dummy)
     rmse= np.sqrt(-cross_val_score(alg, train_dummy, data_target, scoring="neg_mean_squared_error", cv = kf))
     return(rmse)
-'''
 
+######################################model
+from sklearn.metrics import mean_squared_error
+from sklearn.model_selection import cross_val_score
+from sklearn.ensemble import RandomForestRegressor
+
+#print(temporary)
+
+forest_reg = RandomForestRegressor()
+forest_reg.fit(train_dummy, data_target)
+housing_predictions = forest_reg.predict(train_dummy)
+forest_mse = mean_squared_error(data_target, housing_predictions, multioutput='raw_values')
+forest_rmse = np.sqrt(forest_mse)
+print(forest_mse)
+
+forest_scores = cross_val_score(forest_reg, train_dummy, data_target,
+                                scoring="neg_mean_squared_error", cv=10)
+forest_rmse_scores = np.sqrt(-forest_scores)
+
+
+result = np.expm1(housing_predictions)
+#print(result)
+'''
+print(type(train_dummy.columns[348]))
+print(train_dummy.columns[348])
+'''
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
